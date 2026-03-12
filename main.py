@@ -1,74 +1,80 @@
-import os
 import requests
+import os
 
+# Telegram
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHANNEL = "@BOCAI51"
 
-SUBREDDITS = [
-    "sportsbook",
-    "gambling",
-    "problemgambling"
+# YouTube API
+YOUTUBE_API_KEY = "AIzaSyDiht_MOJLgsSr18483KwtWtOE4xwtTjfs"
+
+# 搜索关键词
+KEYWORDS = [
+    "gambling win",
+    "casino big win",
+    "sports betting tips",
+    "poker highlights",
+    "blackjack strategy"
 ]
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
 
+def get_youtube_videos():
 
-def get_posts():
-    posts = []
+    videos = []
 
-    for sub in SUBREDDITS:
-        url = f"https://www.reddit.com/r/{sub}/hot.json?limit=5"
+    for keyword in KEYWORDS:
+
+        url = "https://www.googleapis.com/youtube/v3/search"
+
+        params = {
+            "part": "snippet",
+            "q": keyword,
+            "type": "video",
+            "maxResults": 2,
+            "key": YOUTUBE_API_KEY
+        }
 
         try:
-            r = requests.get(url, headers=HEADERS, timeout=20)
-            r.raise_for_status()
+
+            r = requests.get(url, params=params)
             data = r.json()
 
-            children = data.get("data", {}).get("children", [])
+            for item in data["items"]:
 
-            for item in children:
-                post_data = item.get("data", {})
-                title = post_data.get("title", "").strip()
-                permalink = post_data.get("permalink", "").strip()
+                title = item["snippet"]["title"]
+                channel = item["snippet"]["channelTitle"]
+                video_id = item["id"]["videoId"]
 
-                if title and permalink:
-                    link = "https://reddit.com" + permalink
-                    posts.append(f"📌 {title}\n{link}")
+                link = f"https://youtube.com/watch?v={video_id}"
+
+                text = f"🎥 {title}\n频道：{channel}\n{link}"
+
+                videos.append(text)
 
         except Exception as e:
-            posts.append(f"⚠️ r/{sub} 抓取失败：{e}")
+            videos.append(f"⚠️ YouTube抓取失败: {str(e)}")
 
-    return posts[:5]
+    return videos[:5]
 
 
-def send_telegram(text):
+def send_telegram(message):
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     data = {
         "chat_id": CHANNEL,
-        "text": text,
+        "text": message,
         "disable_web_page_preview": False
     }
 
-    r = requests.post(url, data=data, timeout=20)
-    r.raise_for_status()
+    requests.post(url, data=data)
 
 
-def main():
-    posts = get_posts()
+videos = get_youtube_videos()
 
-    if not posts:
-        message = "📊 Reddit 热门讨论\n\n今天暂时没有抓到内容。"
-    else:
-        message = "📊 Reddit 热门讨论\n\n" + "\n\n".join(posts)
+message = "📺 今日博彩热门视频\n\n"
 
-    if len(message) > 4000:
-        message = message[:3900] + "\n\n......"
+for v in videos:
+    message += v + "\n\n"
 
-    send_telegram(message)
-
-
-if __name__ == "__main__":
-    main()
+send_telegram(message)
