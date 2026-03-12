@@ -1,45 +1,49 @@
 import os
-BOT_TOKEN = os.environ["BOT_TOKEN"]
+import requests
 
-# 你的频道
+BOT_TOKEN = os.environ["BOT_TOKEN"]
 CHANNEL = "@BOCAI51"
 
-# 要抓取的 Reddit 板块
-subreddits = [
+SUBREDDITS = [
     "sportsbook",
     "gambling",
     "problemgambling"
 ]
 
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
 
 def get_posts():
     posts = []
 
-    for sub in subreddits:
+    for sub in SUBREDDITS:
         url = f"https://www.reddit.com/r/{sub}/hot.json?limit=5"
 
-        headers = {
-            "User-Agent": "Mozilla/5.0"
-        }
-
         try:
-            r = requests.get(url, headers=headers)
+            r = requests.get(url, headers=HEADERS, timeout=20)
+            r.raise_for_status()
             data = r.json()
 
-            for p in data["data"]["children"]:
-                title = p["data"]["title"]
-                link = "https://reddit.com" + p["data"]["permalink"]
+            children = data.get("data", {}).get("children", [])
 
-                posts.append(f"📌 {title}\n{link}")
+            for item in children:
+                post_data = item.get("data", {})
+                title = post_data.get("title", "").strip()
+                permalink = post_data.get("permalink", "").strip()
 
-        except:
-            continue
+                if title and permalink:
+                    link = "https://reddit.com" + permalink
+                    posts.append(f"📌 {title}\n{link}")
+
+        except Exception as e:
+            posts.append(f"⚠️ r/{sub} 抓取失败：{e}")
 
     return posts[:5]
 
 
 def send_telegram(text):
-
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
 
     data = {
@@ -48,14 +52,23 @@ def send_telegram(text):
         "disable_web_page_preview": False
     }
 
-    requests.post(url, data=data)
+    r = requests.post(url, data=data, timeout=20)
+    r.raise_for_status()
 
 
-posts = get_posts()
+def main():
+    posts = get_posts()
 
-message = "📊 Reddit 博彩讨论热点\n\n"
+    if not posts:
+        message = "📊 Reddit 热门讨论\n\n今天暂时没有抓到内容。"
+    else:
+        message = "📊 Reddit 热门讨论\n\n" + "\n\n".join(posts)
 
-for p in posts:
-    message += p + "\n\n"
+    if len(message) > 4000:
+        message = message[:3900] + "\n\n......"
 
-send_telegram(message)
+    send_telegram(message)
+
+
+if __name__ == "__main__":
+    main()
