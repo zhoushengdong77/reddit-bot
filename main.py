@@ -1,7 +1,5 @@
-import requests
-
-# 在这里填你的新的 Telegram Bot Token
-BOT_TOKEN = "8648576942:AAHHCMFlYnt0bGUxlsWZnXsX3CV9ZM9VTRw"
+import os
+BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 # 你的频道
 CHANNEL = "@BOCAI51"
